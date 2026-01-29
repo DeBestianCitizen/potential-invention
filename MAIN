@@ -1,0 +1,63 @@
+from __future__ import print_function
+import os
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+# ----------------------------- # 
+CONFIGURATION
+# ----------------------------- #
+SCOPES = ['https://www.googleapis.com/auth/drive.metadata.readonly']
+SERVICE_ACCOUNT_FILE = 'service_account.json' # Add your credentials file
+
+# ----------------------------- # 
+AUTHENTICATION
+# ----------------------------- #
+def get_drive_service():
+	creds = service_account.Credentials.from_service_account_file(
+		SERVICE_ACCOUNT_FILE, scopes=SCOPES
+	)
+	return build('drive', 'v3', credentials=creds)
+
+# ----------------------------- #
+SEARCH + SORT TOOL
+# ----------------------------- #
+def search_and_sort_docs(sort_by="name", query_text=None):
+	"""
+	sort_by options:
+			- 'name'
+			- 'createdTime'
+			- 'modifiedTime'
+	query_text example:
+				"marketing" → finds docs with 'marketing' in the title
+	"""
+
+service = get_drive_service()
+
+# Build query
+query = "mimeType='application/vnd.google-apps.document'"
+if query_text:
+	query += f" and name contains '{query_text}'"
+
+results = service.files().list(
+	q=query,
+	fields="files(id, name, createdTime, modifiedTime)"
+).execute()
+
+files = results.get('files', [])
+
+# Sort results
+files_sorted = sorted(files, key=lambda x: x.get(sort_by, ""))
+
+# Print results
+print(f"\nSorted by: {sort_by}\n")
+for f in files_sorted:
+	print(f"{f['name']} | Created: {f['createdTime']} | Modified: {f['modifiedTime']}")
+
+return files_sorted
+
+# ----------------------------- # 
+MAIN
+# ----------------------------- #
+if __name__ == "__main__":
+	print("Google Docs Sorting Tool")
+	docs = search_and_sort_docs(sort_by="modifiedTime", query_text="report")
